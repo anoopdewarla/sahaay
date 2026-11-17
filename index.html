@@ -506,7 +506,7 @@ V.ambulance=()=>{
   if(S.pfilter==="als")list=list.filter(p=>p.als&&!p.off);
   list.sort((a,b)=>((DB.ratings[a.id]||{}).answered===false)-((DB.ratings[b.id]||{}).answered===false));
   const sym=INC&&INC.symptom&&SYMPTOMS.find(s=>s.id===INC.symptom);
-  return top("Get an ambulance",INC&&INC.kind==="accident"?"accident":"medical")+`<main class="body" style="gap:10px">
+  return top("Get an ambulance",INC?kindRoute(INC.kind):"medical")+`<main class="body" style="gap:10px">
 <p style="margin:0;font-size:14px">Every option near you, in one list. Each call goes straight to the provider. Nobody in between.</p>
 ${INC?`<div class="script"><b>Say this</b><p>${esc(script())}</p></div>`:""}
 <div class="chips">${[["best","Best for you"],["free","Free"],["als","Advanced life support"]].map(f=>`<button type="button" class="chip" data-a="pfilter" data-v="${f[0]}" aria-pressed="${S.pfilter===f[0]}">${f[1]}</button>`).join("")}</div>
@@ -524,7 +524,7 @@ V.tracking=()=>{
   const etaMin=a.eta?Math.max(0,Math.round((a.eta-now())/60000)):null;
   const others=INC.calls.filter(c=>c.num!==p.num&&PROVIDERS.some(x=>x.num===c.num));
   const r=DB.ratings[p.id]||{};
-  return top("Ambulance",INC.kind==="accident"?"accident":"ambulance")+`<main class="body">
+  return top("Ambulance",kindRoute(INC.kind))+`<main class="body">
 <div class="dark" style="gap:10px">
 <div class="row" style="justify-content:space-between"><span style="font:700 13px/1 var(--display);letter-spacing:1px;text-transform:uppercase;opacity:.85">${esc(p.name)}</span><span class="pill ${s>=4?"ok":"red"}">${esc(steps[s])}</span></div>
 <div class="row" style="align-items:baseline"><span class="big" id="eta">${etaMin==null?"–":"~"+etaMin}</span><span style="font-size:15px">${etaMin==null?"No ETA yet":"min away"}</span></div>
@@ -1227,7 +1227,7 @@ lostpet:{start:"s",nodes:{
 /* every emergency gets a name the rest of the app can use */
 Object.keys(E).forEach(k=>{if(!KIND[k])KIND[k]=E[k].t;});
 function kindRoute(k){return {accident:"accident",medical:"ambulance",fire:"fire",danger:"danger",women:"women"}[k]||("e-"+k);}
-function curKind(){const r=route();if(r==="em")return location.hash.slice(3);if(r.indexOf("acc-")===0)return "accident";if(r==="ambulance"||r==="tracking"||r==="cpr")return "medical";return r;}
+function curKind(){const r=route();if(r==="em")return location.hash.slice(3);if(r.indexOf("acc-")===0)return INC?INC.kind:"accident";if(r==="ambulance"||r==="tracking"||r==="cpr")return "medical";return r;}
 
 /* nothing starts by itself any more */
 ensureInc=function(){return INC;};
@@ -1279,7 +1279,7 @@ ${bigcall("108","Just need an ambulance?","Call now, start later")}
 </main>`;
 };
 V["acc-guide"]=()=>top("First aid","accident")+`<main class="body"><div class="card"><ol class="steps">${AID.road.steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol><p class="dont">${esc(AID.road.dont)}</p></div><a class="bigcall" href="#cpr"><span class="l"><b>Not breathing?</b><small>CPR with a beat</small></span>${ic("heart","#fff",32)}</a>${startCard("accident",true)}</main>`;
-Object.keys(V).filter(k=>k.indexOf("acc-")===0&&k!=="acc-guide").forEach(k=>{const o=V[k];V[k]=()=>(INC&&INC.kind==="accident")?o():V.accident();});
+Object.keys(V).filter(k=>k.indexOf("acc-")===0&&k!=="acc-guide").forEach(k=>{const o=V[k];V[k]=()=>(INC&&(INC.kind==="accident"||["acc-family","acc-loc","acc-photos","acc-log"].includes(k)))?o():V.accident();});
 const _accDash=_acc;
 /* add End to the dashboard header block */
 const _accInner=V.accident;
@@ -1555,8 +1555,9 @@ const _startCard=startCard;
 startCard=function(kind,blocking){
   const h=_startCard(kind,blocking);
   if(INC||(!blocking&&S.guide[kind]))return h;
+  if(["fraud","blackmail","phone","mental"].includes(kind))return h;
   const on=SHARE_DEFAULT.has(kind);
-  return h.replace(`<div class="grid2"><button type="button" class="btn red" data-a="startinc"`,`<label class="row" style="gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="shareok" ${on?"checked":""} style="width:22px;height:22px;accent-color:var(--signal);flex:none;margin-top:1px"><span><b>Alert people nearby</b><br><span class="muted">${on?"So helpers near you see it and nobody calls twice.":"Off by default here, so the person you're in danger from can't see it."} Approximate spot only. No names or numbers.</span></span></label><div class="grid2"><button type="button" class="btn red" data-a="startinc"`);
+  return h.replace(`<div class="grid2"><button type="button" class="btn red" data-a="startinc"`,`<label class="row" style="gap:10px;align-items:flex-start;font-size:14px;cursor:pointer"><input type="checkbox" id="shareok" ${on?"checked":""} style="width:22px;height:22px;accent-color:var(--signal);flex:none;margin-top:1px"><span><b>Alert people nearby</b><br><span class="muted">${on?"So helpers near you see it and nobody calls twice.":(["danger","women","stalking","cab","domestic","child"].includes(kind)?"Off by default, so the person you're in danger from can't see it.":"Off by default. Turn it on if people nearby could help.")} Approximate spot only. No names or numbers.</span></span></label><div class="grid2"><button type="button" class="btn red" data-a="startinc"`);
 };
 
 /* ---- home: show what's around you ---- */
@@ -1577,6 +1578,138 @@ function globalNav(){
     return `<a href="#${t[0]}" ${on?'aria-current="page"':""} style="position:relative">${ic(t[2],on?"var(--signal)":"var(--muted)")}${t[1]}${badge}</a>`}).join("")}</nav>`;
 }
 function updateNavBadge(){const nv=document.querySelector("nav.tabs");if(nv)nv.outerHTML=globalNav();}
+
+/* =============== v5: one pattern for every emergency — gate, then dashboard =============== */
+JOBS.push({id:"fire",t:"Fire service",icon:"fire",call:["101"],steps:["Not called","Called","On the way","At the scene","Fire out"],hint:""});
+JOBS.push({id:"help",t:"Helpline",icon:"phone",call:[],steps:["Not called","Called","Following their advice","Sorted"],hint:""});
+const JOB_META={amb:["Ambulance","amb"],police:["Police","badge"],hosp:["Hospital","hosp"],family:["Family","users"],tow:["Clear the road","tow"],paper:["Paperwork","card"],fire:["Fire service","fire"],help:["Helpline","phone"]};
+const JOB_NEXT={amb:"Get an ambulance",police:"Inform the police",hosp:"Choose a hospital",family:"Tell family",tow:"Get the road cleared",paper:"Paperwork for later",fire:"Call the fire service",help:"Call the helpline"};
+const FIXED_JOBS={medical:["amb","hosp","family"],fire:["fire","amb","family"],danger:["police","family"],women:["police","help","family"]};
+const FIXED_HELP={women:["181","Women helpline"],medical:["108","Ambulance"],fire:["101","Fire service"],danger:["112","Emergency"]};
+function flowNums(kind){const F=FL[kind];const out=[];if(!F)return out;
+  [F.nodes[F.start]].concat(Object.values(F.nodes)).forEach(n=>{if(!n)return;if(n.call)out.push(n.call[0]);(n.calls||[]).forEach(c=>out.push(c));(n.tools||[]).forEach(t=>{if(t==="amb")out.push("108");if(t==="hosp")out.push("hosp");if(t==="cpr")out.push("108");});});return out;}
+function jobsFor(kind){
+  if(kind==="accident")return ["amb","police","hosp","family","tow","paper"];
+  if(FIXED_JOBS[kind])return FIXED_JOBS[kind];
+  const map={"108":"amb","100":"police","112":"police","101":"fire","hosp":"hosp"};
+  const js=[];flowNums(kind).forEach(n=>{const j=map[n]||"help";if(!js.includes(j))js.push(j);});
+  if(js.includes("amb")&&!js.includes("hosp"))js.push("hosp");
+  js.push("family");return [...new Set(js)];
+}
+function helpFor(kind){
+  if(FIXED_HELP[kind])return FIXED_HELP[kind];
+  const n=flowNums(kind).find(x=>!["108","100","112","101","hosp"].includes(x));
+  return n?[n,NUM[n]||"Helpline"]:null;
+}
+const _startInc5=startInc;
+startInc=function(kind,extra){const r=_startInc5(kind,extra);INC.jobset=jobsFor(kind);INC.help=helpFor(kind);JOBS.forEach(j=>{if(INC.jobs[j.id]==null)INC.jobs[j.id]=0;});saveInc();return r;};
+function jobsOf(){return (INC&&INC.jobset)||jobsFor(INC.kind);}
+function jobLabel(id){const st=jobState(id);if(id==="help"&&INC.help&&st.s===0)return "Not called";return st.label;}
+function tileRoute(id){const acc=INC.kind==="accident";
+  return {amb:INC.amb?"tracking":(acc?"acc-amb":"ambulance"),police:acc?"acc-police":"j-police",hosp:acc?"acc-hosp":"hospitals",family:"acc-family",tow:"acc-road",paper:"acc-paper",fire:"j-fire",help:"j-help"}[id];}
+
+/* the gate: nothing to fill in, just what starting does */
+function gateView(kind){
+  const js=jobsFor(kind),t=KIND[kind]||"Emergency",h=helpFor(kind),first=js[0];
+  const quick=first==="amb"?["108","Need an ambulance now?","Call, then start"]:first==="police"?["112","In danger right now?","Call, then start"]:first==="fire"?["101","Call the fire service now","Call, then start"]:h?[h[0],"Call "+h[1]+" now","Call, then start"]:["112","Call 112 now","Call, then start"];
+  const back="home";
+  return top(t,back)+`<main class="body">
+<div><h1 class="h1" style="font-size:30px">Request help: ${esc(t)}</h1><p class="muted" style="margin-top:6px;font-size:14px">Starting opens one dashboard for all of this:</p></div>
+<div class="card"><ul class="todo" style="gap:4px">${js.map(j=>`<li class="row" style="min-height:36px">${ic(JOB_META[j][1],"var(--signal)")}<span>${j==="help"&&h?esc(h[1])+" · "+fmtNum(h[0]):esc(JOB_META[j][0])}</span></li>`).join("")}<li class="row" style="min-height:36px">${ic("bell","var(--signal)")}<span>A clock, a timeline, and your ID to quote on calls</span></li></ul></div>
+${startCard(kind,true)}
+${bigcall(quick[0],quick[1],quick[2]).replace(`<span class="n">${quick[0]}</span>`,`<span class="n" style="${quick[0].length>5?"font-size:26px":""}">${fmtNum(quick[0])}</span>`)}
+<button type="button" class="btn ghost" data-a="guide" data-v="${kind}" style="min-height:52px">Just show me what to do</button>
+</main>`;
+}
+
+/* the dashboard: same shape for everyone */
+function dash(kind){
+  const t=KIND[kind],js=jobsOf(),s=Math.max(0,Math.floor((now()-INC.start)/1000));
+  const nx=INC.role===null&&kind==="accident"?null:js.find(j=>j!=="paper"&&(INC.jobs[j]||0)===0);
+  const done=js.filter(j=>j!=="paper"&&(INC.jobs[j]||0)>0).length;
+  const tools=kind==="danger"||kind==="women"||["stalking","cab","domestic"].includes(kind)?`<div class="grid2"><button type="button" class="btn" data-a="silentshare">${ic("loc","var(--paper)")}Send location</button><button type="button" class="btn ghost" data-a="fakecall">${ic("phone","var(--signal)")}Fake call</button></div><div class="card" style="padding:10px 12px"><div class="row">${ic("bell","var(--signal)")}<div style="flex:1;font-weight:700">Loud alarm</div><button type="button" class="btn sm red" data-hold="alarm" style="min-width:88px">Hold</button></div></div>`:"";
+  return top(t,"home")+`<main class="body">
+<div class="dark" style="gap:6px">
+<div class="row" style="justify-content:space-between;font:700 12px/1 var(--display);letter-spacing:1px;text-transform:uppercase;opacity:.8"><span>${esc(INC.id)} · started ${tstr(INC.start)}</span><span>${done}/${js.filter(j=>j!=="paper").length} moving</span></div>
+<div class="row" style="justify-content:space-between;align-items:baseline"><span class="row" style="align-items:baseline;gap:8px"><span class="big" id="clk2" data-start="${INC.start}" style="font-size:38px">${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}</span><span style="font-size:12px;opacity:.85">since you started</span></span><a href="#end" style="color:var(--paper);font:700 12px/1 var(--body);text-decoration:underline">End emergency</a></div>
+<div style="font-size:12px;opacity:.9;overflow-wrap:anywhere">${S.loc?esc(S.loc.src==="area"?S.loc.label+", Hyderabad":"Live location ±"+Math.round(S.loc.acc||0)+" m"):"Location not set"}${INC.landmark?" · "+esc(INC.landmark):""}${INC.share?" · nearby people can see this":""}</div>
+</div>
+${miniMap()}
+${nx?`<a class="bigcall" href="#${tileRoute(nx)}" style="min-height:72px">${ic(JOB_META[nx][1],"#fff",28)}<span class="l" style="flex:1"><small style="font-weight:700;letter-spacing:.6px;text-transform:uppercase">Do this next</small><b style="font:800 24px/1 var(--display);text-transform:uppercase">${esc(nx==="help"&&INC.help?"Call "+INC.help[1]:JOB_NEXT[nx])}</b></span>${ic("chev","#fff")}</a>`
+:`<div class="card calm"><b>Everything's moving.</b><span class="muted">Keep family updated, and end the emergency when it's over.</span></div>`}
+${tools}
+<div class="grid2" style="grid-template-columns:repeat(${js.length>4?3:2},minmax(0,1fr))">
+${js.map(j=>{const st=jobState(j),isN=nx===j;const lbl=j==="help"&&INC.help?INC.help[1]:JOB_META[j][0];return `<a href="#${tileRoute(j)}" style="background:var(--surface);border:${isN?"2px solid var(--signal)":"1px solid var(--line)"};border-radius:14px;padding:10px 8px;text-decoration:none;display:flex;flex-direction:column;align-items:center;gap:4px;text-align:center;min-height:96px;justify-content:center">${ic(JOB_META[j][1],st.lv==="done"?"var(--calm)":st.lv==="mid"?"#C58A1A":st.lv==="later"?"var(--muted)":"var(--signal)",26)}<span style="font:700 14px/1.05 var(--display);text-transform:uppercase">${esc(lbl)}</span><span class="pill ${st.lv==="done"?"ok":st.lv==="mid"?"warn":st.lv==="later"?"":"red"}" style="font-size:10px;padding:2px 6px;white-space:normal">${esc(jobLabel(j))}</span></a>`}).join("")}
+</div>
+<div class="grid2">
+<a class="btn ghost" href="#g-${kind}" style="min-height:52px">${ic("heart","var(--signal)")}What to do now</a>
+<a class="btn ghost" href="#acc-loc" style="min-height:52px">${ic("pin","var(--signal)")}Location</a>
+<a class="btn ghost" href="#acc-photos" style="min-height:52px">${ic("cam","var(--signal)")}Photos · ${S.photos.length}</a>
+<a class="btn ghost" href="#acc-log" style="min-height:52px">${ic("bell","var(--signal)")}Timeline · ${INC.log.length}</a>
+</div>
+${kind==="medical"?`<a class="btn red" href="#cpr" style="min-height:52px">Someone isn't breathing: CPR</a>`:""}
+</main>`;
+}
+
+/* job screens that weren't there before */
+function jobTop(t){return `<header class="top"><a class="back" href="#${INC?kindRoute(INC.kind):"home"}" aria-label="Back to dashboard">${ic("back")}</a><div class="ttl">${esc(t)}</div><a class="p112" href="tel:112" data-a="call" data-n="112">112</a></header>`;}
+V["j-police"]=()=>{if(!INC)return V.home();const pd=INC.police||{};return jobTop("Police")+`<main class="body">${jobHead("police")}
+${optCard({name:"Emergency · 112",sub:"Police, fire and ambulance in one call",num:"112",cost:"Free",rec:"Call this",job:"police"})}
+${optCard({name:"Police · 100",sub:"Local police control room",num:"100",cost:"Free",job:"police"})}
+${INC.kind==="women"||INC.kind==="stalking"||INC.kind==="domestic"?`<a class="listlink" href="https://wa.me/918712656858" target="_blank" rel="noopener">${ic("phone","var(--calm)")}<div style="flex:1"><div class="t">WhatsApp SHE Teams, Hyderabad Police</div><div class="muted" style="font-size:12px">87126 56858 · write instead of calling</div></div></a>`:""}
+<div class="card"><b>Note these down</b><div class="field"><label for="pd-st">Police station</label><input id="pd-st" data-c="pd" data-k="st" value="${esc(pd.st||"")}"></div><div class="field"><label for="pd-no">Complaint or FIR number</label><input id="pd-no" data-c="pd" data-k="no" value="${esc(pd.no||"")}"></div></div></main>`;};
+V["j-fire"]=()=>{if(!INC)return V.home();return jobTop("Fire service")+`<main class="body">${jobHead("fire")}
+${optCard({name:"Fire service · 101",sub:"Say what's burning, the floor, and a landmark",num:"101",cost:"Free",rec:"Call this",job:"fire"})}
+${optCard({name:"HYDRAA · 9000113667",sub:"Disaster response team, Hyderabad",num:"9000113667",cost:"Free",job:"fire"})}
+<div class="card"><b>Until they arrive</b><ol class="steps"><li>Get everyone out. Leave your things.</li><li>Stay low under smoke. Stairs, never the lift.</li><li>Close doors behind you.</li><li>Tell firefighters if anyone is still inside.</li></ol></div></main>`;};
+V["j-help"]=()=>{if(!INC||!INC.help)return V.home();const h=INC.help,F=FL[INC.kind];const others=[...new Set(flowNums(INC.kind))].filter(n=>n!==h[0]&&!["hosp"].includes(n));
+  const webs=F?[].concat(...Object.values(F.nodes).map(n=>n.web||[])):[];const wa=F?Object.values(F.nodes).map(n=>n.wa).find(Boolean):null;
+  return jobTop(h[1])+`<main class="body">${jobHead("help")}
+${optCard({name:`${h[1]} · ${fmtNum(h[0])}`,sub:"The right line for this emergency",num:h[0],cost:"Free",rec:"Call this",job:"help"})}
+${others.filter(n=>!["108","100","112","101"].includes(n)).map(n=>optCard({name:`${NUM[n]||"Helpline"} · ${fmtNum(n)}`,sub:"Also helps with this",num:n,cost:"Free",job:"help"})).join("")}
+${wa?`<a class="listlink" href="https://wa.me/91${wa[0]}" target="_blank" rel="noopener">${ic("phone","var(--calm)")}<div style="flex:1"><div class="t">WhatsApp ${esc(wa[1])}</div></div></a>`:""}
+${[...new Map(webs.map(w=>[w[0],w])).values()].map(w=>`<a class="listlink" href="${w[0]}" target="_blank" rel="noopener">${ic("chev","var(--signal)")}<div style="flex:1"><div class="t">${esc(w[1])}</div></div></a>`).join("")}
+</main>`;};
+
+/* acc-* screens that make sense for every emergency */
+accTop=function(t){return jobTop(t);};
+/* bespoke screens become gate / dashboard / guide */
+const OLD={medical:V.medical,fire:V.fire,danger:V.danger,women:V.women};
+Object.keys(OLD).forEach(k=>{V[k]=()=>(INC&&INC.kind===k)?dash(k):(S.guide[k]?OLD[k]():gateView(k));});
+V.gb=()=>{const k=location.hash.slice(3);return OLD[k]?OLD[k]():V.home();};
+/* flows: gate first, dashboard once started, guide on demand */
+const _flowView=V.em;
+V.em=()=>{const id=location.hash.slice(3),F=FL[id];
+  if(location.hash.indexOf("#g-")===0)return _flowView();
+  if(!F||F.private)return _flowView();
+  if(INC&&INC.kind===id)return dash(id);
+  if(S.guide[id])return _flowView();
+  return gateView(id);};
+const _route5=route;
+route=function(){const h=(location.hash||"").slice(1);
+  if(h.indexOf("g-")===0){const k=h.slice(2);if(OLD[k])return "gb";if(FL[k]&&E[k])return "em";}
+  return _route5();};
+kindRoute=function(k){if(k==="accident")return "accident";if(E[k]&&E[k].go)return E[k].go;return "e-"+k;};
+const _tabFor=tabFor;
+tabFor=function(r){if(INC&&(r.indexOf("j-")===0||r.indexOf("acc-")===0||r==="hospitals"||r==="ambulance"||r==="tracking"||r==="gb"||(r==="em"&&location.hash.slice(3)===INC.kind)||r===kindRoute(INC.kind)))return "active";return _tabFor(r);};
+
+FL.mental.private=true;
+/* guide mode keeps a way to start */
+const _startCard5=startCard;
+startCard=function(kind,blocking){if(!INC&&!blocking&&S.guide[kind]&&!(FL[kind]&&FL[kind].private))return `<div class="status" style="justify-content:space-between"><span>Just guiding. Nothing is saved.</span><button type="button" class="btn sm red" data-a="startinc" data-v="${kind}">Start emergency</button></div>`;return _startCard5(kind,blocking);};
+/* home: no "I saw an accident" tile; fraud is frequent instead */
+delete E.report;
+FREQ.splice(0,FREQ.length,["accident","road","Road accident"],["medical","pulse","Medical"],["fire","fire","Fire"],["danger","shield","Danger"],["women","woman","Woman in danger"],["e-fraud","phone","Money fraud"]);
+/* profile lives in the top bar */
+function profBtn(){const n=(DB.mid.name||"").trim();return `<a href="#me" aria-label="Profile" style="width:40px;height:40px;border-radius:50%;background:${n?"var(--ink)":"var(--surface)"};border:1px solid ${n?"var(--ink)":"var(--line)"};color:var(--paper);display:flex;align-items:center;justify-content:center;font:800 18px/1 var(--display);text-decoration:none;flex:none">${n?esc(n[0].toUpperCase()):ic("me","var(--ink)",20)}</a>`;}
+topHome=function(){return `<header class="top"><div class="brand"><span class="dot"></span>Sahaay</div><a class="p112" href="tel:112" data-a="call" data-n="112">112 <small>Call now</small></a>${profBtn()}</header>`;};
+["nearby","active"].forEach(k=>{const o=V[k];V[k]=()=>o().replace('<a class="p112"',profBtn().replace('<a ','<a style="order:2" ')+'<a class="p112"');});
+globalNav=function(){
+  const cur=tabFor(route()),n=nearbyAlerts(2).length;
+  const T=[["home","Emergencies","shield"],["nearby","Nearby","pin"],["active","Active","bell"],["aid","First aid","heart"]];
+  return `<nav class="tabs" aria-label="Main menu" style="grid-template-columns:repeat(4,minmax(0,1fr))">${T.map(t=>{const on=cur===t[0];const badge=t[0]==="nearby"&&n?`<span class="nb">${n}</span>`:t[0]==="active"&&INC?`<span class="nb dot"></span>`:"";
+    return `<a href="#${t[0]}" ${on?'aria-current="page"':""} style="position:relative">${ic(t[2],on?"var(--signal)":"var(--muted)")}${t[1]}${badge}</a>`}).join("")}</nav>`;
+};
 
 /* =============== render & routing =============== */
 const ROUTES=Object.keys(V).filter(k=>k!=="other"&&k!=="em");
@@ -1673,7 +1806,7 @@ document.addEventListener("click",e=>{
     case "sentp": INC.people=INC.people||{};INC.people[v]=now();if(INC.jobs.family===0)INC.jobs.family=1;addLog("Update sent to "+v);setTimeout(()=>render(true),400);break;
     case "addp":{const n=($("#xn")||{}).value,ph=($("#xp")||{}).value;if(ph){INC.extra=(INC.extra||[]).concat([{n:n||ph,p:ph.replace(/[^\d+]/g,"")}]);saveInc();render(true);}else toast("Add a phone number");break;}
     case "fgo":{const v2=el.dataset.v;if(v2.charAt(0)==="#"){if(v2.indexOf("#e-")===0)S.fl.id=null;location.hash=v2.slice(1);}else{S.fl.path.push(v2);render();}break;}
-    case "fback": if(S.fl.path.length>1){S.fl.path.pop();render();}else{S.fl.id=null;location.hash="home";}break;
+    case "fback": if(S.fl.path.length>1){S.fl.path.pop();render();}else{S.fl.id=null;location.hash=(INC&&location.hash.indexOf("#g-")===0)?kindRoute(INC.kind):"home";}break;
     case "tstart": S.timers[el.dataset.v]=now();render(true);break;
     case "copyff":{const t=formMsg(el.dataset.v);try{navigator.clipboard.writeText(t).then(()=>toast("Copied"),()=>toast("Select the text to copy"));}catch(err){toast("Select the text to copy");}break;}
     case "fakeans": fakeEnd(true);break;
@@ -1715,6 +1848,7 @@ document.addEventListener("pointerdown",e=>{const b=e.target.closest('[data-hold
 setInterval(()=>{
   document.querySelectorAll("[data-timer]").forEach(el=>{const st=S.timers[el.dataset.timer];if(!st)return;const sec=(now()-st)/1000;el.textContent=el.dataset.up?fmtT(sec):fmtT(+el.dataset.dur-sec);
     if(!el.dataset.up&&sec>=+el.dataset.dur&&!el.dataset.done){el.dataset.done=1;tone(880,.3,"sine",.3);try{navigator.vibrate&&navigator.vibrate([300,100,300])}catch(e){}toast("Time's up");}});
+  const c2=$("#clk2");if(c2){const s=Math.max(0,Math.floor((now()-(+c2.dataset.start))/1000));c2.textContent=`${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;}
   const bt=$("#breathTxt");if(bt)bt.textContent=(Math.floor(now()/1000)%10)<4?"Breathe in":"Breathe out";
   if(!INC)return;const r=route();
   if(r==="accident"){const c=clock(),a=$("#clk"),b=$("#clkbar");if(a)a.textContent=c.txt;if(b)b.style.width=c.pct+"%";}
