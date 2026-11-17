@@ -352,7 +352,7 @@ function shareBtns(msg,act){
 /* =============== layout pieces =============== */
 function topHome(){return `<header class="top"><div class="brand"><span class="dot"></span>Sahaay</div><a class="p112" href="tel:112" data-a="call" data-n="112">112 <small>Call now</small></a></header>`;}
 function top(t,back){return `<header class="top"><a class="back" href="#${back}" aria-label="Back">${ic("back")}</a><div class="ttl">${esc(t)}</div><a class="p112" href="tel:112" data-a="call" data-n="112">112</a></header>`;}
-function nav(cur){const L=[["home","Help","shield"],["hospitals","Hospitals","hosp"],["aid","First aid","heart"],["me","Profile","me"]];
+function nav(cur){const L=[["home","Emergencies","shield"],["hospitals","Hospitals","hosp"],["aid","First aid","heart"],["me","Profile","me"]];
   return `<nav class="tabs" aria-label="Sections">${L.map(x=>`<a href="#${x[0]}" ${cur===x[0]?'aria-current="page"':""}>${ic(x[2],cur===x[0]?"var(--signal)":"var(--muted)")}${x[1]}</a>`).join("")}</nav>`;}
 function bigcall(num,label,sub){return `<a class="bigcall" href="tel:${num}" data-a="call" data-n="${num}"><span class="l"><b>${esc(label)}</b><small>${esc(sub)}</small></span><span class="n">${num}</span></a>`;}
 function activeBanner(){
@@ -1572,7 +1572,7 @@ function tabFor(r){if(r==="nearby"||r==="alert")return "nearby";if(r==="aid"||r=
   if(INC&&(r===kindRoute(INC.kind)||r.indexOf("acc-")===0||r==="tracking"||r==="family"||r==="end"||r==="log"||(r==="em"&&location.hash.slice(3)===INC.kind)))return "active";return "home";}
 function globalNav(){
   const cur=tabFor(route()),n=nearbyAlerts(2).length;
-  const T=[["home","Help","shield"],["nearby","Nearby","pin"],["active","Active","bell"],["aid","First aid","heart"],["me","Profile","me"]];
+  const T=[["home","Emergencies","shield"],["nearby","Nearby","pin"],["active","Active","bell"],["aid","First aid","heart"],["me","Profile","me"]];
   return `<nav class="tabs" aria-label="Main menu" style="grid-template-columns:repeat(5,minmax(0,1fr))">${T.map(t=>{const on=cur===t[0];const badge=t[0]==="nearby"&&n?`<span class="nb">${n}</span>`:t[0]==="active"&&INC?`<span class="nb dot"></span>`:"";
     return `<a href="#${t[0]}" ${on?'aria-current="page"':""} style="position:relative">${ic(t[2],on?"var(--signal)":"var(--muted)")}${t[1]}${badge}</a>`}).join("")}</nav>`;
 }
